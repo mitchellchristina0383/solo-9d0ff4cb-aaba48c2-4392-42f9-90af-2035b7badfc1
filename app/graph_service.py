@@ -7,6 +7,7 @@ from collections import deque
 from .database import read_tx, write_tx
 from .errors import GraphError, NoGraph
 from .schemas import GraphPayload, GraphResponse, ServiceIn
+from .upgrade_service import invalidate_active_batches
 
 # ---------------------------------------------------------------------------
 # Validation
@@ -135,6 +136,10 @@ def replace_graph(payload: GraphPayload) -> dict:
                 nodes,
             )
         ]
+        # A committed graph swap invalidates every active upgrade batch in the
+        # same transaction, so a batch can never be claimed/completed against
+        # a superseded graph revision.
+        invalidated = invalidate_active_batches(conn)
     return {
         "accepted": True,
         "revision": new_revision,
@@ -142,6 +147,7 @@ def replace_graph(payload: GraphPayload) -> dict:
         "service_count": len(nodes),
         "edge_count": len(edge_rows),
         "preserved_state": preserved,
+        "invalidated_batches": invalidated,
     }
 
 

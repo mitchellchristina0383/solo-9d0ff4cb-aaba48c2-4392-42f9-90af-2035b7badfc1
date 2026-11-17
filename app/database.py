@@ -59,6 +59,29 @@ CREATE TABLE IF NOT EXISTS events (
     applied         INTEGER NOT NULL,
     recorded_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
+
+CREATE TABLE IF NOT EXISTS upgrade_batches (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    graph_revision  INTEGER NOT NULL,
+    status          TEXT NOT NULL CHECK (status IN ('active', 'invalidated')),
+    created_at      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+CREATE TABLE IF NOT EXISTS upgrade_steps (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    batch_id        INTEGER NOT NULL REFERENCES upgrade_batches(id) ON DELETE CASCADE,
+    service         TEXT NOT NULL,
+    upstreams_all   TEXT NOT NULL,   -- JSON array: every transitive upstream
+    upstreams_batch TEXT NOT NULL,   -- JSON array: transitive upstreams inside the batch
+    status          TEXT NOT NULL DEFAULT 'pending'
+                    CHECK (status IN ('pending', 'claimed', 'succeeded', 'failed')),
+    claim_token     TEXT,
+    claim_epoch     INTEGER NOT NULL DEFAULT 0,
+    claim_snapshot  TEXT,            -- JSON object {service: last_seq} taken at claim time
+    claimed_at      TEXT,
+    finished_at     TEXT,
+    UNIQUE (batch_id, service)
+);
 """
 
 _local = threading.local()

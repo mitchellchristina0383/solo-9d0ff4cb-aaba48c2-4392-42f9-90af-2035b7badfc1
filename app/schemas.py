@@ -83,3 +83,66 @@ class ReplaceResponse(BaseModel):
     service_count: int
     edge_count: int
     preserved_state: list[str]
+    invalidated_batches: int = 0
+
+
+# ---------------------------------------------------------------------------
+# Upgrade batches
+# ---------------------------------------------------------------------------
+
+StepStatus = Literal["pending", "claimed", "succeeded", "failed"]
+BatchStatus = Literal["active", "invalidated"]
+
+
+class BatchCreatePayload(BaseModel):
+    services: list[str] = Field(
+        ..., min_length=1,
+        description="Services to upgrade, selected from the current graph",
+    )
+
+
+class StepInfo(BaseModel):
+    service: str
+    status: StepStatus
+    claim_epoch: int
+    upstreams_all: list[str]
+    upstreams_in_batch: list[str]
+    claimed_at: Optional[str] = None
+    finished_at: Optional[str] = None
+
+
+class BatchResponse(BaseModel):
+    batch_id: int
+    graph_revision: int
+    status: BatchStatus
+    created_at: str
+    steps: list[StepInfo]
+
+
+class BatchSummary(BaseModel):
+    batch_id: int
+    graph_revision: int
+    status: BatchStatus
+    created_at: str
+    step_count: int
+    succeeded: int
+
+
+class ClaimResponse(BaseModel):
+    batch_id: int
+    service: str
+    claim_token: str
+    claim_epoch: int
+    health_snapshot: dict[str, int]
+
+
+class CompletePayload(BaseModel):
+    claim_token: str = Field(..., min_length=1)
+    result: Literal["success", "failure"]
+
+
+class CompleteResponse(BaseModel):
+    batch_id: int
+    service: str
+    status: StepStatus
+    claim_epoch: int
